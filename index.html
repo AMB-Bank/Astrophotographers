@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔭 Sky Scanner AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔭 Sky Scanner AI</h1>
+        <p>Только фото неба с телескопа! (чёрный фон + звёзды)</p>
+        <input type="file" id="imageInput" accept="image/*">
+        <canvas id="canvas" width="400" height="400"></canvas>
+        <div id="results"></div>
+    </div>
+    <script>
+        document.getElementById('imageInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            const resp = await fetch('/analyze', {method: 'POST', body: formData});
+            const data = await resp.json();
+            
+            // Рисуем фото + круги
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, 400, 400);
+                if (data.status.includes('✅')) {
+                    data.objects.forEach(obj => {
+                        ctx.beginPath();
+                        ctx.arc(obj.x/2, obj.y/2, obj.r/2, 0, 2*Math.PI);
+                        ctx.strokeStyle = '#00f0ff';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        ctx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+                        ctx.fill();
+                    });
+                }
+            };
+            img.src = 'image/jpeg;base64,' + data.image_b64;
+            
+            // Результаты
+            document.getElementById('results').innerHTML = `
+                <div class="result-box">
+                    <h2>${data.status}</h2>
+                    ${data.status.includes('✅') ? `
+                        <p><strong>Объектов:</strong> ${data.total}</p>
+                        <p><strong>Аномалия:</strong> ${(data.anomaly_score*100).toFixed(1)}%</p>
+                        <ul>${data.objects.map(o => 
+                            `<li>${o.type} (x:${o.x}, y:${o.y}, r:${o.r}px)</li>`
+                        ).join('')}</ul>
+                    ` : '<p style="color:#ff4444">📸 Загружай фото ЧЁРНОГО неба с телескопа!</p>'}
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html>
